@@ -39,15 +39,52 @@ export function createKeyFile() {
   };
 }
 
-export function parseKeyFile(text) {
-  let data;
-  try { data = JSON.parse(text); } catch { throw new Error("El archivo no es un JSON válido."); }
+function checkPlain(data) {
   if (data?.type !== "cortex-keyfile" || !data.secret || !/^[0-9a-f]{24}$/.test(data.id || "")) {
     throw new Error("Este archivo no es una llave de CORTEX.");
   }
   const secret = b64.to(data.secret);
   if (secret.length !== 32) throw new Error("El archivo llave está dañado.");
   return { ...data, secretBytes: secret };
+}
+
+// Devuelve la llave lista, o { locked: true, data } si el archivo está protegido con contraseña.
+export function parseKeyFile(text) {
+  let data;
+  try { data = JSON.parse(text); } catch { throw new Error("Este archivo no es una llave de CORTEX."); }
+  if (data?.type === "cortex-keyfile-locked") {
+    if (!data.salt || !data.iv || !data.ct) throw new Error("El archivo llave protegido está dañado.");
+    return { locked: true, data };
+  }
+  return checkPlain(data);
+}
+
+// ---- Archivo llave protegido (para llevarlo en un USB) ----
+// El contenido de la llave (id + secreto) se cifra con una contraseña propia del archivo.
+// Quien copie el archivo del USB no puede usarlo sin esa contraseña.
+async function fileKey(password, salt) {
+  const k = await crypto.subtle.importKey("raw", enc.encode(password.normalize("NFKC")), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt, iterations: PBKDF2_ITER },
+    k, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+}
+
+export async function lockKeyFile(keyFile, password) {
+  const salt = randomBytes(16), iv = randomBytes(12);
+  const inner = { type: "cortex-keyfile", version: 1, id: keyFile.id, secret: b64.from(keyFile.secretBytes), created: keyFile.created };
+  const ct = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await fileKey(password, salt), enc.encode(JSON.stringify(inner)));
+  return {
+    type: "cortex-keyfile-locked", version: 1,
+    salt: b64.from(salt), iv: b64.from(iv), ct: b64.from(ct),
+    note: "Archivo llave de CORTEX protegido con contraseña. Sin su contraseña no sirve para nada.",
+  };
+}
+
+export async function unlockKeyFile(data, password) {
+  let pt;
+  try {
+    pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: b64.to(data.iv) }, await fileKey(password, b64.to(data.salt)), b64.to(data.ct));
+  } catch { throw new Error("Contraseña del archivo llave incorrecta."); }
+  return checkPlain(JSON.parse(dec.decode(pt)));
 }
 
 // Deriva dos cosas independientes a partir de contraseña + archivo llave:

@@ -1,6 +1,6 @@
-# CORTEX
+# CORTEX OS
 
-Bóveda personal cifrada: contraseñas, tarjetas, fichas de identidad, drive de archivos, notas y contactos.
+Bóveda personal cifrada con interfaz de sistema operativo: escritorio con ventanas, dock, buscador (Ctrl+K) y terminal. Contraseñas, tarjetas, fichas de identidad, drive con carpetas, notas y contactos.
 
 ## Cómo protege tus datos
 
@@ -11,6 +11,7 @@ Bóveda personal cifrada: contraseñas, tarjetas, fichas de identidad, drive de 
 - **Bloqueo por inactividad** y al volver a la pestaña tras más de 1 min.
 - **Registro de entradas:** cada entrada, fallo y bloqueo con fecha y dispositivo.
 - **Portapapeles:** los datos copiados se borran solos a los 30 s.
+- **Archivo llave protegido:** el archivo llave puede llevar su propia contraseña (PBKDF2 600.000 + AES-256-GCM). Si alguien lo copia de tu USB no le sirve sin ella.
 
 > Si pierdes la contraseña **o** el archivo llave, los datos no se pueden recuperar. Guarda el archivo llave en dos sitios.
 
@@ -23,8 +24,14 @@ Los archivos se trocean en partes de 700 KB, se cifran y se guardan en Firestore
 ```
 index.html
 css/styles.css
-js/app.js        interfaz
-js/crypto.js     cifrado y generador
+assets/          logo del cerebro e iconos
+js/app.js        arranque, pantalla de acceso y sesión
+js/os.js         escritorio, ventanas, dock y buscador
+js/apps.js       apps (contraseñas, tarjetas, identidad, drive, terminal…)
+js/brain.js      cerebro animado con destellos que recorren las fibras
+js/ui.js         utilidades de interfaz
+js/state.js      estado de la sesión y guardado cifrado
+js/crypto.js     cifrado, archivo llave y generador
 js/store.js      Firebase (Auth sin Google + Firestore)
 js/templates.js  modelos de fichas de identidad
 js/config.js     configuración web del proyecto marela
