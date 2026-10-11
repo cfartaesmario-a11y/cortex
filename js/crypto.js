@@ -176,3 +176,32 @@ export function strength(pw = "") {
   const score = bits < 40 ? 1 : bits < 60 ? 2 : bits < 80 ? 3 : 4;
   return { score, bits, label: ["Vacía", "Débil", "Mejorable", "Fuerte", "Muy fuerte"][score] };
 }
+
+// ---- Códigos 2FA (TOTP, RFC 6238) ----
+export function base32Decode(str) {
+  const A = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  const clean = String(str).toUpperCase().replace(/[\s=-]/g, "");
+  if (!clean || /[^A-Z2-7]/.test(clean)) throw new Error("La clave secreta no es válida (debe ser Base32).");
+  let bits = 0, val = 0; const out = [];
+  for (const c of clean) { val = (val << 5) | A.indexOf(c); bits += 5; if (bits >= 8) { out.push((val >>> (bits - 8)) & 255); bits -= 8; } }
+  return new Uint8Array(out);
+}
+export async function totp(secret, { digits = 6, period = 30, algo = "SHA-1", at = Date.now() } = {}) {
+  const key = await crypto.subtle.importKey("raw", base32Decode(secret), { name: "HMAC", hash: algo }, false, ["sign"]);
+  const counter = Math.floor(at / 1000 / period);
+  const buf = new ArrayBuffer(8); const v = new DataView(buf);
+  v.setUint32(0, Math.floor(counter / 2 ** 32)); v.setUint32(4, counter >>> 0);
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", key, buf));
+  const o = mac[mac.length - 1] & 15;
+  const bin = ((mac[o] & 127) << 24) | (mac[o + 1] << 16) | (mac[o + 2] << 8) | mac[o + 3];
+  return String(bin % 10 ** digits).padStart(digits, "0");
+}
+// Lee un enlace otpauth://totp/Emisor:cuenta?secret=...&issuer=...
+export function parseOtpAuth(uri) {
+  const u = new URL(uri);
+  if (u.protocol !== "otpauth:") throw new Error("No es un enlace otpauth://");
+  const label = decodeURIComponent(u.pathname.replace(/^\/+(totp\/)?/, ""));
+  const [iss, acc] = label.includes(":") ? label.split(":") : [u.searchParams.get("issuer") || "", label];
+  const algo = ({ SHA1: "SHA-1", SHA256: "SHA-256", SHA512: "SHA-512" })[(u.searchParams.get("algorithm") || "SHA1").toUpperCase()] || "SHA-1";
+  return { issuer: u.searchParams.get("issuer") || iss, account: acc, secret: u.searchParams.get("secret") || "", digits: +(u.searchParams.get("digits") || 6), period: +(u.searchParams.get("period") || 30), algo };
+}

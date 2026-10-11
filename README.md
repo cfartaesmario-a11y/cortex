@@ -1,6 +1,6 @@
 # CORTEX OS
 
-Bóveda personal cifrada con interfaz de sistema operativo: escritorio con ventanas, dock, buscador (Ctrl+K) y terminal. Contraseñas, tarjetas, fichas de identidad, drive con carpetas, notas y contactos.
+Bóveda personal cifrada con interfaz de sistema operativo tipo HUD: escritorio con ventanas, dock, buscador (Ctrl+K), terminal y menús de clic derecho. Contraseñas, tarjetas, fichas de identidad, drive con carpetas, autenticador 2FA, notas, contactos y papelera.
 
 ## Cómo protege tus datos
 
@@ -11,6 +11,8 @@ Bóveda personal cifrada con interfaz de sistema operativo: escritorio con venta
 - **Bloqueo por inactividad** y al volver a la pestaña tras más de 1 min.
 - **Registro de entradas:** cada entrada, fallo y bloqueo con fecha y dispositivo.
 - **Portapapeles:** los datos copiados se borran solos a los 30 s.
+- **Papelera:** lo que borras se guarda 30 días y se puede restaurar; también hay «Deshacer» al momento.
+- **Autenticador 2FA:** genera los códigos de verificación (TOTP, RFC 6238) a partir de claves guardadas cifradas.
 - **Archivo llave protegido:** el archivo llave puede llevar su propia contraseña (PBKDF2 600.000 + AES-256-GCM). Si alguien lo copia de tu USB no le sirve sin ella.
 
 > Si pierdes la contraseña **o** el archivo llave, los datos no se pueden recuperar. Guarda el archivo llave en dos sitios.
@@ -28,7 +30,8 @@ assets/          logo del cerebro e iconos
 js/app.js        arranque, pantalla de acceso y sesión
 js/os.js         escritorio, ventanas, dock y buscador
 js/apps.js       apps (contraseñas, tarjetas, identidad, drive, terminal…)
-js/brain.js      cerebro animado con destellos que recorren las fibras
+js/brain.js      destellos que recorren las fibras del cerebro y de la esfera
+js/decoder.js    secuencia de entrada (decodificador y ACCESS GRANTED)
 js/ui.js         utilidades de interfaz
 js/state.js      estado de la sesión y guardado cifrado
 js/crypto.js     cifrado, archivo llave y generador

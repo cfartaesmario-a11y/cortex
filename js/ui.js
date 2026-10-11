@@ -60,6 +60,14 @@ export const ICONS = {
   vid: '<rect x="3" y="5" width="13" height="14" rx="2.5"/><path d="M16 10l5-3v10l-5-3z"/>',
   pdf: '<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 13h6M9 16.5h4"/>',
   aud: '<path d="M9 18V6l11-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>',
+  star: '<path d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
+  starf: '<path fill="currentColor" d="M12 3.5l2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',
+  restore: '<path d="M4 12a8 8 0 1 0 2.4-5.7L4 8.6"/><path d="M4 4v4.6h4.6"/>',
+  otp: '<rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M7 12h.01M10.5 12h.01M14 12h.01M17.5 12h.01"/>',
+  user: '<circle cx="12" cy="8" r="3.8"/><path d="M4.5 20.5c1.4-3.7 4.3-5.6 7.5-5.6s6.1 1.9 7.5 5.6"/>',
+  sort: '<path d="M7 4v16M3.5 16.5L7 20l3.5-3.5M17 20V4M13.5 7.5L17 4l3.5 3.5"/>',
+  sphere: '<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.5 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.5-3.5-8.5s1-6 3.5-8.5z"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
   cpu: '<rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9.5 9.5h5v5h-5zM9 2.5V6M15 2.5V6M9 18v3.5M15 18v3.5M2.5 9H6M2.5 15H6M18 9h3.5M18 15h3.5"/>',
 };
 export const ico = (name, cls = "") => h("span", { class: `ico ${cls}`, "aria-hidden": "true", html: `<svg viewBox="0 0 24 24">${ICONS[name] || ""}</svg>` });
@@ -70,13 +78,26 @@ export const fmtSize = (n = 0) => (n < 1024 ? `${n} B` : n < 1048576 ? `${(n / 1
 export const hexShort = (id = "") => id.slice(0, 4).toUpperCase() + "·" + id.slice(4, 8).toUpperCase();
 
 // ---- avisos ----
-export function toast(msg, kind = "") {
+export function toast(msg, kind = "", action) {
   const host = $("#toasts");
   if (!host) return;
-  const t = h("div", { class: `toast ${kind}`, role: "status" }, h("span", { class: "toast-tag" }, kind === "err" ? "ERR" : "OK"), h("span", {}, msg));
+  const t = h("div", { class: `toast ${kind}`, role: "status" }, h("span", { class: "toast-tag" }, kind === "err" ? "ERR" : "OK"), h("span", { class: "grow" }, msg),
+    action && h("button", { class: "toast-act", onclick: () => { t.remove(); action[1](); } }, action[0]));
   host.append(t);
-  setTimeout(() => t.classList.add("out"), 2600);
-  setTimeout(() => t.remove(), 3100);
+  const ms = action ? 6000 : 2600;
+  setTimeout(() => t.classList.add("out"), ms);
+  setTimeout(() => t.remove(), ms + 500);
+}
+export function relTime(t) {
+  if (!t) return "";
+  const s = (Date.now() - t) / 1000;
+  if (s < 60) return "hace un momento";
+  const m = s / 60, hh = m / 60, d = hh / 24, mo = d / 30, y = d / 365;
+  if (m < 60) return `hace ${Math.floor(m)} min`;
+  if (hh < 24) return `hace ${Math.floor(hh)} h`;
+  if (d < 30) return `hace ${Math.floor(d)} día${Math.floor(d) === 1 ? "" : "s"}`;
+  if (mo < 12) return `hace ${Math.floor(mo)} mes${Math.floor(mo) === 1 ? "" : "es"}`;
+  return `hace ${Math.floor(y)} año${Math.floor(y) === 1 ? "" : "s"}`;
 }
 
 let clipTimer;
@@ -158,4 +179,47 @@ export function scramble(el, text, ms = 500) {
     if (p < 1) requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
+}
+
+// ---- Menú contextual (clic derecho; en táctil, mantener pulsado) ----
+export function popMenu(x, y, entries, title) {
+  $(".ctxmenu")?.remove();
+  const items = entries.filter(Boolean);
+  const m = h("div", { class: "ctxmenu", role: "menu" },
+    title && h("div", { class: "ctx-title" }, title),
+    ...items.map((e) => e === "-" ? h("i", { class: "ctx-sep" }) :
+      h("button", { role: "menuitem", class: e[3] || "", onclick: () => { m.remove(); e[2](); } }, ico(e[1]), h("span", {}, e[0]), e[4] && h("kbd", {}, e[4]))));
+  document.body.append(m);
+  const r = m.getBoundingClientRect();
+  m.style.left = `${Math.max(8, Math.min(x, innerWidth - r.width - 8))}px`;
+  m.style.top = `${Math.max(8, Math.min(y, innerHeight - r.height - 8))}px`;
+  const close = (e) => {
+    if (e.type === "keydown" && e.key !== "Escape") return;
+    if (e.type === "pointerdown" && m.contains(e.target)) return;
+    m.remove(); removeEventListener("pointerdown", close, true); removeEventListener("keydown", close, true); removeEventListener("blur", close);
+  };
+  setTimeout(() => { addEventListener("pointerdown", close, true); addEventListener("keydown", close, true); addEventListener("blur", close); }, 0);
+  // navegación con flechas
+  m.addEventListener("keydown", (e) => {
+    const bs = [...m.querySelectorAll("button")]; const i = bs.indexOf(document.activeElement);
+    if (e.key === "ArrowDown") { e.preventDefault(); bs[(i + 1) % bs.length]?.focus(); }
+    if (e.key === "ArrowUp") { e.preventDefault(); bs[(i - 1 + bs.length) % bs.length]?.focus(); }
+  });
+  m.querySelector("button")?.focus({ preventScroll: true });
+  return m;
+}
+
+// Une clic derecho y "mantener pulsado" (táctil) a un menú
+export function bindMenu(el, getEntries, title) {
+  el.addEventListener("contextmenu", (e) => { e.preventDefault(); e.stopPropagation(); popMenu(e.clientX, e.clientY, getEntries(), typeof title === "function" ? title() : title); });
+  let timer = null, sx = 0, sy = 0;
+  el.addEventListener("pointerdown", (e) => {
+    if (e.pointerType !== "touch") return;
+    sx = e.clientX; sy = e.clientY;
+    timer = setTimeout(() => { timer = null; navigator.vibrate?.(12); el.dataset.lp = "1"; popMenu(sx, sy, getEntries(), typeof title === "function" ? title() : title); }, 520);
+  });
+  const cancel = (e) => { if (timer && (!e || e.type !== "pointermove" || Math.hypot(e.clientX - sx, e.clientY - sy) > 10)) { clearTimeout(timer); timer = null; } };
+  el.addEventListener("pointermove", cancel); el.addEventListener("pointerup", () => cancel()); el.addEventListener("pointercancel", () => cancel());
+  // el clic que sigue a una pulsación larga no debe abrir el elemento
+  el.addEventListener("click", (e) => { if (el.dataset.lp) { delete el.dataset.lp; e.preventDefault(); e.stopImmediatePropagation(); } }, true);
 }

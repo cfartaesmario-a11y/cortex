@@ -1,7 +1,7 @@
 // CORTEX OS: escritorio, ventanas, dock y buscador. En móvil se convierte en pantalla de inicio con apps a pantalla completa.
-import { h, ico, $, $$, modalOpen, closeModal } from "./ui.js";
-import { brain } from "./brain.js";
-import { settings } from "./state.js";
+import { h, ico, $, $$, modalOpen, closeModal, bindMenu, popMenu } from "./ui.js";
+import { neural, SPEEDS } from "./brain.js";
+import { settings, st } from "./state.js";
 
 const mobileQ = matchMedia("(max-width: 760px)");
 export const isMobile = () => mobileQ.matches;
@@ -14,54 +14,80 @@ let clockTimer = null;
 const appById = (id) => APPS.find((a) => a.id === id);
 
 // ───────────────────────── montaje ─────────────────────────
-export function mountDesktop({ apps, widget, onLock, search }) {
-  APPS = apps; cfg = { widget, onLock, search };
+function wallpaper() {
+  const kind = settings.wallpaper || "esfera";
+  const speed = SPEEDS[settings.fxSpeed] || 7;
+  const src = kind === "cerebro" ? "assets/brain.webp" : "assets/sphere.webp";
+  const art = kind === "rejilla" ? null
+    : settings.fx ? neural({ src, size: kind === "cerebro" ? "min(80vh, 60vw)" : "min(88vh, 66vw)", sparks: kind === "cerebro" ? 16 : 22, className: `wall-art wall-${kind}`, dim: 0.85, speed })
+    : h("img", { class: `wall-art wall-${kind} static`, src, alt: "" });
+  return h("div", { class: `wallpaper wp-${kind}`, "aria-hidden": "true" },
+    h("div", { class: "wall-grid" }), h("div", { class: "wall-glow" }), art,
+    h("div", { class: "wall-scan" }), h("div", { class: "wall-vignette" }),
+    h("i", { class: "hud-corner tl" }), h("i", { class: "hud-corner tr" }), h("i", { class: "hud-corner bl" }), h("i", { class: "hud-corner br" }),
+    h("span", { class: "hud-coord c1" }, "N 41.62° · E 2.69°"), h("span", { class: "hud-coord c2" }, "SECTOR 07 // NEURAL CORE"));
+}
+
+export function mountDesktop({ apps, widget, onLock, search, desktopMenu }) {
+  APPS = apps; cfg = { widget, onLock, search, desktopMenu };
   wins.clear();
-  const icons = h("div", { class: "desk-icons", role: "list" },
-    ...apps.filter((a) => a.desktop !== false).map((a) => {
-      const b = h("button", { class: "desk-icon", role: "listitem", "data-app": a.id, title: a.title },
-        h("span", { class: "desk-glyph" }, ico(a.icon)), h("span", { class: "desk-label" }, a.title));
-      b.addEventListener("click", (e) => {
-        if (isMobile() || e.detail === 0 || e.pointerType === "touch") return openApp(a.id);
-        $$(".desk-icon.sel").forEach((x) => x.classList.remove("sel")); b.classList.add("sel");
-      });
-      b.addEventListener("dblclick", () => openApp(a.id));
-      b.addEventListener("keydown", (e) => { if (e.key === "Enter") openApp(a.id); });
+  const icons = h("nav", { class: "desk-icons", "aria-label": "Apps" },
+    h("div", { class: "rail-label" }, h("span", {}, "APPS"), h("i")),
+    ...apps.filter((a) => a.desktop !== false).map((a, i) => {
+      const b = h("button", { class: "desk-icon", "data-app": a.id, title: a.title },
+        h("span", { class: "desk-glyph" }, ico(a.icon)), h("span", { class: "desk-label" }, a.title), h("span", { class: "desk-idx" }, String(i + 1).padStart(2, "0")));
+      b.addEventListener("click", () => openApp(a.id));
+      bindMenu(b, () => [["Abrir", a.icon, () => openApp(a.id)], wins.has(a.id) && ["Cerrar ventana", "x", () => closeApp(a.id)]], a.title);
       return b;
     }));
   const dock = h("nav", { class: "dock", "aria-label": "Dock" },
-    h("button", { class: "dock-btn home-btn", title: "Escritorio", onclick: showDesktop }, ico("home")),
+    h("button", { class: "dock-btn home-btn", title: "Mostrar escritorio", onclick: showDesktop }, ico("home")),
     h("i", { class: "dock-sep" }),
     ...apps.filter((a) => a.dock).map((a) => h("button", { class: "dock-btn", "data-app": a.id, title: a.title, onclick: () => toggleApp(a.id) }, ico(a.icon), h("i", { class: "run" }))),
     h("i", { class: "dock-sep" }),
     h("button", { class: "dock-btn", title: "Buscar (Ctrl+K)", onclick: openPalette }, ico("search")),
-    h("button", { class: "dock-btn danger-hover", title: "Bloquear", onclick: () => cfg.onLock?.() }, ico("lock")));
+    h("button", { class: "dock-btn danger-hover", title: "Bloquear (Ctrl+Shift+L)", onclick: () => cfg.onLock?.() }, ico("lock")));
 
   const clock = h("span", { class: "tb-clock" });
+  const date = h("span", { class: "tb-date hide-sm" });
+  const lockT = h("b", { id: "tb-lock" }, "--:--");
   const top = h("header", { class: "topbar" },
     h("div", { class: "tb-left" },
-      h("button", { class: "tb-brand", onclick: openPalette, title: "Buscar en CORTEX" }, h("img", { src: "assets/icon-32.png", alt: "" }), h("b", {}, "CORTEX"), h("span", { class: "tb-os" }, "OS")),
-      h("span", { class: "tb-active", id: "tb-active" }, "Escritorio")),
+      h("button", { class: "tb-brand", onclick: openPalette, title: "Buscar en CORTEX" }, h("img", { src: "assets/icon-32.png", alt: "" }), h("b", {}, "CORTEX"), h("span", { class: "tb-os" }, "OS 3")),
+      h("span", { class: "tb-sep hide-sm" }, "//"),
+      h("span", { class: "tb-active", id: "tb-active" }, "escritorio")),
+    h("div", { class: "tb-mid hide-sm" },
+      h("span", { class: "tb-seg" }, h("i", { class: "led" }), "NODE ", h("b", {}, "marela·eu1")),
+      h("span", { class: "tb-seg" }, h("i", { class: "led" }), "CIPHER ", h("b", {}, "AES-256-GCM")),
+      h("span", { class: "tb-seg lockseg", title: "Tiempo hasta el bloqueo automático" }, ico("lock"), "AUTO-LOCK ", lockT)),
     h("div", { class: "tb-right" },
-      h("span", { class: "tb-chip" }, h("i", { class: "led" }), "AES-256-GCM"),
-      h("span", { class: "tb-chip hide-sm" }, h("i", { class: "led" }), "marela · eu-west1"),
-      clock,
+      h("button", { class: "tb-search hide-sm", onclick: openPalette }, ico("search"), h("span", {}, "Buscar"), h("kbd", {}, "Ctrl K")),
+      date, clock,
       h("button", { class: "icon-btn", title: "Bloquear", "aria-label": "Bloquear", onclick: () => cfg.onLock?.() }, ico("lock"))));
-
-  const wall = h("div", { class: "wallpaper", "aria-hidden": "true" },
-    h("div", { class: "wall-grid" }),
-    settings.fx ? brain({ size: "min(78vh, 62vw)", sparks: 22, className: "wall-brain", dim: 0.9, speed: 2 }) : h("img", { class: "wall-brain static", src: "assets/brain.webp", alt: "" }),
-    h("div", { class: "wall-scan" }), h("div", { class: "wall-vignette" }));
 
   const widgetHost = h("aside", { class: "widget", id: "widget" });
   const layer = h("div", { class: "win-layer", id: "win-layer" });
-  const os = h("div", { class: "os enter", id: "os" }, top, h("main", { class: "desk", id: "desk" }, wall, widgetHost, icons, layer), dock);
+  const desk = h("main", { class: "desk", id: "desk" }, wallpaper(), icons, widgetHost, layer);
+  // Clic derecho en el fondo del escritorio
+  desk.addEventListener("contextmenu", (e) => {
+    if (e.target.closest(".win, .widget, .desk-icon, .dock")) return;
+    e.preventDefault();
+    popMenu(e.clientX, e.clientY, cfg.desktopMenu?.() || [], "CORTEX");
+  });
+  const os = h("div", { class: "os enter", id: "os" }, top, desk, dock);
   $("#app").replaceChildren(os);
-  setTimeout(() => os.classList.remove("enter"), 1200);
+  setTimeout(() => os.classList.remove("enter"), 1400);
   renderWidget();
 
-  const tick = () => { clock.textContent = new Date().toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }); };
-  tick(); clearInterval(clockTimer); clockTimer = setInterval(tick, 10000);
+  const tick = () => {
+    const d = new Date();
+    clock.textContent = d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    date.textContent = d.toLocaleDateString("es-ES", { weekday: "short", day: "2-digit", month: "short" }).toUpperCase();
+    const left = Math.max(0, (st.idleDeadline || 0) - Date.now());
+    lockT.textContent = st.idleDeadline ? `${String(Math.floor(left / 60000)).padStart(2, "0")}:${String(Math.floor(left / 1000) % 60).padStart(2, "0")}` : "--:--";
+    lockT.parentElement.classList.toggle("warn", st.idleDeadline && left < 30000);
+  };
+  tick(); clearInterval(clockTimer); clockTimer = setInterval(tick, 1000);
 }
 
 export function unmountDesktop() {
@@ -73,6 +99,10 @@ export function unmountDesktop() {
 export function renderWidget() {
   const host = $("#widget");
   if (host && cfg.widget) host.replaceChildren(cfg.widget());
+}
+export function setWallpaper() {
+  const old = $(".wallpaper");
+  if (old) old.replaceWith(wallpaper());
 }
 
 // ───────────────────────── ventanas ─────────────────────────
@@ -92,13 +122,14 @@ export function openApp(id, args) {
   const bar = h("header", { class: "win-bar" },
     h("button", { class: "win-back icon-btn", "aria-label": "Volver", onclick: () => closeApp(id) }, ico("back")),
     h("span", { class: "win-ico" }, ico(app.icon)), title,
-    h("span", { class: "win-path" }, `~/cortex/${app.id}`),
+    h("span", { class: "win-path" }, `${app.id}.sys`, h("i", {}, ` · pid ${1000 + APPS.indexOf(app) * 37}`)),
     h("div", { class: "win-ctl" },
       h("button", { class: "wc", "aria-label": "Minimizar", onclick: () => minimize(id) }, ico("min")),
       h("button", { class: "wc", "aria-label": "Maximizar", onclick: () => toggleMax(id) }, ico("max")),
       h("button", { class: "wc close", "aria-label": "Cerrar", onclick: () => closeApp(id) }, ico("x"))));
   const grip = h("i", { class: "win-grip", "aria-hidden": "true" });
-  const el = h("section", { class: "win opening", "data-app": id, role: "dialog", "aria-label": app.title }, bar, body, grip);
+  const el = h("section", { class: "win opening", "data-app": id, role: "dialog", "aria-label": app.title }, bar, body, grip,
+    h("i", { class: "wc-tl", "aria-hidden": "true" }), h("i", { class: "wc-br", "aria-hidden": "true" }));
   ctx.el = el;
   // Posición inicial en cascada
   const desk = $("#desk").getBoundingClientRect();
@@ -160,7 +191,7 @@ function focusWin(id) {
 }
 function showDesktop() { for (const id of wins.keys()) minimize(id); }
 export function closeAll() { for (const id of [...wins.keys()]) closeApp(id); }
-function setActiveTitle(t) { const e = $("#tb-active"); if (e) e.textContent = t; }
+function setActiveTitle(t) { const e = $("#tb-active"); if (e) e.textContent = t.toLowerCase(); }
 function updateDock() {
   $$(".dock-btn[data-app]").forEach((b) => {
     const w = wins.get(b.dataset.app);

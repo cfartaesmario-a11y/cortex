@@ -1,11 +1,12 @@
 // CORTEX OS · arranque, pantalla de acceso, creación de bóveda y sesión.
 import * as C from "./crypto.js";
 import * as S from "./store.js";
-import { st, settings, wipeSession, onChange } from "./state.js";
+import { st, settings, wipeSession, onChange, emptyTrash } from "./state.js";
 import { h, ico, $, toast, closeModal, downloadJSON, scramble, hexShort } from "./ui.js";
-import { brain } from "./brain.js";
+import { brain, SPEEDS } from "./brain.js";
+import { runDecoder } from "./decoder.js";
 import { mountDesktop, unmountDesktop, refreshAll } from "./os.js";
-import { APPS, widget, searchItems, setLock, MAX_FAILS } from "./apps.js";
+import { APPS, widget, searchItems, setLock, MAX_FAILS, desktopMenu } from "./apps.js";
 
 const root = () => $("#app");
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -63,7 +64,7 @@ function lockShell(panel, { big = true } = {}) {
     date.textContent = d.toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
   };
   tick(); const iv = setInterval(() => { if (!clock.isConnected) clearInterval(iv); else tick(); }, 10000);
-  const b = settings.fx ? brain({ size: big ? "min(64vh, 44vw)" : "min(50vh, 40vw)", sparks: 34, className: "ls-brain", speed: 2 }) : h("img", { class: "ls-brain static", src: "assets/brain.webp", alt: "" });
+  const b = settings.fx ? brain({ size: big ? "min(64vh, 44vw)" : "min(50vh, 40vw)", sparks: 16, className: "ls-brain", speed: SPEEDS[settings.fxSpeed] || 7 }) : h("img", { class: "ls-brain static", src: "assets/brain.webp", alt: "" });
   const scr = h("main", { class: "lockscreen" },
     h("div", { class: "wall-grid", "aria-hidden": "true" }), h("div", { class: "wall-scan", "aria-hidden": "true" }),
     h("section", { class: "ls-hero" }, b, h("div", { class: "ls-time" }, clock, date)),
@@ -174,8 +175,7 @@ function renderLock(reason) {
       st.failsSince = st.fails.filter((f) => !st.prevAccess || f.at > st.prevAccess.at).length;
       await S.setAttempts(keyFile.id, { failed: 0, lockUntil: 0, fails: st.fails }).catch(() => {});
       await S.logEvent("entrada");
-      await openVault((n) => say(`descifrando ${n} elementos…`));
-      say("acceso concedido", "ok");
+      say("access granted", "ok");
       await enter(scr);
     } catch (err) { await S.logout(); fail(err.message); }
   };
@@ -191,10 +191,13 @@ function renderLock(reason) {
   say(reason ? reason.toLowerCase() : "sistema listo · inserta tu llave");
 }
 
+// Entrada: el decodificador descifra la bóveda de verdad y después se monta el escritorio
 async function enter(scr) {
   scr.classList.add("granted");
-  await wait(matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 900);
+  const dec = await runDecoder({ keyId: st.keyId, decrypt: (onProgress) => openVault(onProgress) });
+  emptyTrash(true).catch(() => {}); // limpia lo que lleve más de 30 días en la papelera
   startDesktop();
+  await dec.finish();
 }
 
 // ───────────────────────── crear bóveda ─────────────────────────
@@ -245,7 +248,6 @@ function renderSetup() {
       st.keyId = parsedKey.id; st.key = key; st.keyFile = parsedKey; st.prevAccess = null; st.failsSince = 0; st.fails = [];
       await S.logEvent("creada");
       pw.value = pw2.value = fpw.value = fpw2.value = "";
-      await openVault();
       await enter(scr);
     } catch (e) {
       msg.textContent = e?.code === "auth/email-already-in-use" ? "Ya existe una bóveda con esta llave." : e.message;
@@ -274,15 +276,17 @@ function renderSetup() {
 // ───────────────────────── sesión ─────────────────────────
 async function openVault(progress) {
   const docs = await S.listItems();
-  progress?.(docs.length);
   st.items.clear();
+  let done = 0;
+  progress?.(0, docs.length);
   await Promise.all(docs.map(async (d) => {
     try { const it = await C.decryptJSON(st.key, d.box); it.id = d.id; st.items.set(d.id, it); } catch {}
+    progress?.(++done, docs.length);
   }));
 }
 
 function startDesktop() {
-  mountDesktop({ apps: APPS, widget, onLock: () => lock("Bóveda bloqueada"), search: searchItems });
+  mountDesktop({ apps: APPS, widget, onLock: () => lock("Bóveda bloqueada"), search: searchItems, desktopMenu });
   armIdle();
 }
 onChange(() => refreshAll());
@@ -306,6 +310,7 @@ setLock(lock);
 function armIdle() {
   clearTimeout(idleTimer);
   if (!st.key || !settings.lockMinutes) return;
+  st.idleDeadline = Date.now() + settings.lockMinutes * 60000;
   idleTimer = setTimeout(() => lock("Bloqueada por inactividad"), settings.lockMinutes * 60000);
 }
 ["pointerdown", "keydown", "wheel", "touchstart"].forEach((ev) => addEventListener(ev, armIdle, { passive: true }));
