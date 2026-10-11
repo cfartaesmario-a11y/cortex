@@ -200,7 +200,7 @@ img.static { opacity: .55; filter: brightness(.8); }
 .tb-left, .tb-right, .tb-mid { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .tb-brand { display: flex; align-items: center; gap: 8px; padding: 3px 8px; border-radius: 6px; }
 .tb-brand:hover { background: var(--hover); }
-.tb-brand img { width: 20px; height: 20px; border-radius: 5px; }
+.tb-brand img { width: 22px; height: 22px; filter: drop-shadow(0 0 6px rgba(255,255,255,.35)); }
 .tb-brand b { font: 700 13px var(--display); letter-spacing: .26em; }
 .tb-os { font-size: 9.5px; color: var(--dim); border: 1px solid var(--line-hi); border-radius: 3px; padding: 0 4px; letter-spacing: .1em; }
 .tb-sep { color: #3c3c42; }
@@ -241,21 +241,28 @@ img.wall-cerebro { width: min(80vh, 60vw); }
 .hud-coord.c1 { left: 42px; bottom: 16px; }
 .hud-coord.c2 { right: 42px; bottom: 16px; }
 
-/* raíl de apps */
-.desk-icons { position: absolute; left: 18px; top: 18px; z-index: 2; display: grid; grid-template-columns: repeat(2, 84px); gap: 6px; align-content: start; }
-.rail-label { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-size: 9.5px; letter-spacing: .3em; color: var(--dim); margin: 0 2px 4px; }
-.rail-label i { flex: 1; height: 1px; background: linear-gradient(90deg, var(--line-hi), transparent); }
-.desk-icon { position: relative; display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 4px 9px; border-radius: 10px; border: 1px solid transparent; color: var(--ink); background: rgba(10,10,12,.35); transition: border-color .2s, background .2s; }
-.desk-icon:hover, .desk-icon:focus-visible { background: rgba(18,18,22,.75); border-color: var(--line-hi); }
-.desk-icon::before, .desk-icon::after { content: ""; position: absolute; width: 8px; height: 8px; border: 1px solid var(--white); opacity: 0; transition: opacity .2s, transform .2s var(--ease); }
-.desk-icon::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; transform: translate(3px, 3px); }
-.desk-icon::after { bottom: -1px; right: -1px; border-left: 0; border-top: 0; transform: translate(-3px, -3px); }
-.desk-icon:hover::before, .desk-icon:hover::after { opacity: 1; transform: none; }
-.desk-glyph { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(160deg, #1e1e22, #08080a); border: 1px solid var(--line-hi); box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 8px 18px rgba(0,0,0,.5); }
-.desk-glyph .ico { width: 19px; height: 19px; }
-.desk-icon:hover .desk-glyph { box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 0 20px rgba(255,255,255,.12); }
-.desk-label { font-size: 10.5px; text-align: center; line-height: 1.2; letter-spacing: .02em; }
-.desk-idx { position: absolute; top: 5px; right: 7px; font-size: 8.5px; color: #47474e; letter-spacing: .1em; }
+/* apps del escritorio: se pueden arrastrar a cualquier casilla */
+.nsphere { position: relative; width: var(--fx-size); aspect-ratio: 1; flex: none; }
+.nsphere canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.app-ico { display: inline-flex; width: 100%; height: 100%; }
+.app-ico svg { width: 100%; height: 100%; }
+.desk-icons { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.desk-icon { position: absolute; width: 86px; pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 10px 4px 8px; border-radius: 12px; border: 1px solid transparent; color: var(--ink); touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; transition: left .22s var(--ease), top .22s var(--ease), background .2s, border-color .2s, transform .15s; }
+.desk-icon:hover, .desk-icon:focus-visible { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.08); }
+.desk-icon.lifted { transition: none; z-index: 40; background: rgba(255,255,255,.07); border-color: var(--line-hi); transform: scale(1.06); cursor: grabbing; }
+.desk-icon.lifted .desk-glyph { box-shadow: 0 18px 40px rgba(0,0,0,.7), 0 0 26px rgba(255,255,255,.18); }
+.icon-slot { position: absolute; width: 86px; height: 92px; border: 1px dashed rgba(255,255,255,.35); border-radius: 12px; opacity: 0; transition: left .12s, top .12s, opacity .15s; pointer-events: none; }
+.desk.arranging .icon-slot { opacity: 1; }
+.desk.arranging .desk-icons { background-image: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1.5px); background-size: 92px 102px; background-position: 16px 16px; }
+.desk-glyph { position: relative; width: 52px; height: 52px; border-radius: 15px; display: grid; place-items: center; color: #f4f4f6;
+  background: radial-gradient(120% 90% at 30% 0%, rgba(255,255,255,.16), transparent 55%), linear-gradient(160deg, #242428 0%, #111114 55%, #050506 100%);
+  border: 1px solid rgba(255,255,255,.14); box-shadow: inset 0 1px 0 rgba(255,255,255,.18), inset 0 -10px 18px rgba(0,0,0,.55), 0 10px 24px rgba(0,0,0,.6); overflow: hidden; transition: box-shadow .2s, transform .2s var(--ease); }
+.desk-glyph::after { content: ""; position: absolute; inset: 0; border-radius: inherit; background: repeating-linear-gradient(0deg, rgba(255,255,255,.025) 0 1px, transparent 1px 3px); pointer-events: none; }
+.desk-glyph .app-ico { width: 34px; height: 34px; filter: drop-shadow(0 0 6px rgba(255,255,255,.25)); }
+.desk-icon:hover .desk-glyph { transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -10px 18px rgba(0,0,0,.55), 0 0 24px rgba(255,255,255,.14), 0 14px 28px rgba(0,0,0,.6); }
+.desk-label { font-size: 10.5px; text-align: center; line-height: 1.2; letter-spacing: .02em; text-shadow: 0 1px 6px #000, 0 0 2px #000; }
+.dock-btn .app-ico { width: 26px; height: 26px; }
+.win-ico .app-ico { width: 17px; height: 17px; }
 
 /* columna HUD */
 .widget { position: absolute; right: 18px; top: 18px; bottom: 86px; width: 312px; z-index: 2; overflow: auto; scrollbar-width: none; display: flex; flex-direction: column; }
@@ -678,12 +685,13 @@ body.is-dragging, body.is-dragging * { cursor: grabbing !important; user-select:
   .hud-corner, .hud-coord { display: none; }
   .widget { position: relative; right: auto; top: auto; bottom: auto; width: 100%; overflow: visible; order: 1; margin-top: 16px; }
   .hide-mobile { display: none; }
-  .desk-icons { position: relative; inset: auto; order: 0; grid-template-columns: repeat(4, 1fr); gap: 12px 4px; }
-  .rail-label { display: none; }
-  .desk-icon { padding: 6px 2px; background: none; }
-  .desk-icon::before, .desk-icon::after, .desk-idx { display: none; }
-  .desk-glyph { width: 58px; height: 58px; border-radius: 16px; }
-  .desk-glyph .ico { width: 26px; height: 26px; }
+  .desk-icons { position: relative; inset: auto; order: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 4px; pointer-events: auto; }
+  .icon-slot { display: none; }
+  .desk.arranging .desk-icons { background: none; }
+  .desk-icon { position: relative; width: auto; padding: 6px 2px; background: none !important; border: 0 !important; transition: transform .15s; }
+  .desk-icon.lifted { z-index: 40; }
+  .desk-glyph { width: 62px; height: 62px; border-radius: 18px; }
+  .desk-glyph .app-ico { width: 38px; height: 38px; }
   .desk-label { font-size: 11px; }
   .otp { grid-template-columns: 1fr auto; }
   .otp-time { grid-column: 2; grid-row: 1; }

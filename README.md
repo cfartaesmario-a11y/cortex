@@ -30,7 +30,9 @@ assets/          logo del cerebro e iconos
 js/app.js        arranque, pantalla de acceso y sesión
 js/os.js         escritorio, ventanas, dock y buscador
 js/apps.js       apps (contraseñas, tarjetas, identidad, drive, terminal…)
-js/brain.js      destellos que recorren las fibras del cerebro y de la esfera
+js/brain.js      destellos que recorren las fibras del cerebro
+js/sphere.js     esfera neuronal 3D generada por código (fondo del escritorio)
+js/icons.js      iconos de las apps
 js/decoder.js    secuencia de entrada (decodificador y ACCESS GRANTED)
 js/ui.js         utilidades de interfaz
 js/state.js      estado de la sesión y guardado cifrado

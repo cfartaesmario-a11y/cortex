@@ -4,7 +4,8 @@ import * as S from "./store.js";
 import { ID_TEMPLATES, tpl } from "./templates.js";
 import { st, settings, saveSettings, saveItem, deleteItem, byKind, trashItem, restoreItem, trashed, emptyTrash, toggleFav, TRASH_DAYS } from "./state.js";
 import { h, ico, $, toast, copy, modal, closeModal, confirmBox, promptBox, fmtDate, fmtDay, fmtSize, downloadJSON, hexShort, popMenu, bindMenu, relTime } from "./ui.js";
-import { openApp, refreshApp, refreshAll, closeAll, setWallpaper, isMobile, openPalette } from "./os.js";
+import { openApp, refreshApp, refreshAll, closeAll, setWallpaper, isMobile, openPalette, resetIcons } from "./os.js";
+import { sphere } from "./sphere.js";
 
 let lockFn = () => {};
 export function setLock(fn) { lockFn = fn; }
@@ -705,9 +706,10 @@ function appSettings(ctx) {
     c.onchange = () => { settings[key] = c.checked; saveSettings(); after?.(); toast("Ajuste guardado"); };
     return h("label", { class: "set switch" }, h("span", {}, label, note && h("small", { class: "muted block" }, note)), c);
   };
-  const wallSeg = h("div", { class: "wall-pick" }, ...[["esfera", "Esfera", "assets/sphere.webp"], ["cerebro", "Cerebro", "assets/brain.webp"], ["rejilla", "Rejilla", null]].map(([k, l, src]) =>
+  const thumb = { esfera: () => sphere({ size: 92, still: true, interactive: false, pulses: 0 }), cerebro: () => h("img", { src: "assets/brain.webp", alt: "" }), rejilla: () => h("i") };
+  const wallSeg = h("div", { class: "wall-pick" }, ...[["esfera", "Esfera neuronal"], ["cerebro", "Cerebro"], ["rejilla", "Rejilla"]].map(([k, l]) =>
     h("button", { class: settings.wallpaper === k ? "on" : "", onclick: () => { settings.wallpaper = k; saveSettings(); setWallpaper(); ctx.refresh(); } },
-      h("span", { class: "wp-thumb" }, src ? h("img", { src, alt: "" }) : h("i")), h("span", {}, l))));
+      h("span", { class: "wp-thumb" }, thumb[k]()), h("span", {}, l))));
   return h("div", { class: "app narrow" }, head("Ajustes"),
     h("div", { class: "panel" }, h("h3", {}, ico("shield"), "Seguridad"),
       h("div", { class: "set" }, h("label", { for: "lockm" }, "Bloquear tras inactividad"),
@@ -902,7 +904,6 @@ export function widget() {
   const hour = new Date().getHours();
   const greet = hour < 6 ? "Buenas noches" : hour < 14 ? "Buenos días" : hour < 21 ? "Buenas tardes" : "Buenas noches";
   const stat = (k, label, app) => h("button", { class: "w-stat", onclick: () => openApp(app) }, h("b", {}, byKind(k).length), h("span", {}, label));
-  const favs = byKind("login").filter((l) => l.fav).slice(0, 5);
   const otps = byKind("totp").sort((a, b) => (b.fav ? 1 : 0) - (a.fav ? 1 : 0)).slice(0, 3);
   const otpHost = h("div", { class: "w-otps" });
   if (otps.length) liveCodes(otpHost, otps, ({ it, code, left, per }) => h("button", { class: `w-otp ${left < 6000 ? "ending" : ""}`, onclick: () => copy(code, `Código ${it.issuer}`) },
@@ -914,12 +915,6 @@ export function widget() {
       h("p", { class: "muted small" }, st.prevAccess ? `Último acceso ${relTime(st.prevAccess.at)} · ${st.prevAccess.device}` : "Primera entrada en este sistema."),
       h("div", { class: "w-stats" }, stat("login", "claves", "claves"), stat("card", "tarjetas", "tarjetas"), stat("id", "docs", "identidad"), stat("totp", "2FA", "autenticador"), stat("file", "archivos", "drive"), stat("note", "notas", "notas")),
       h("div", { class: "w-quota" }, h("small", { class: "muted" }, "DRIVE"), h("div", { class: "meter" }, h("i", { style: `width:${Math.max(1, (used / QUOTA) * 100)}%` })), h("small", { class: "mono" }, `${fmtSize(used)} / 1 GB`))),
-    panel("ACCESO RÁPIDO",
-      favs.length ? h("div", { class: "w-favs" }, ...favs.map((l) => h("div", { class: "w-fav" },
-        h("span", { class: "w-fav-name" }, h("i", { class: "avatar xs" }, (l.title || "?")[0].toUpperCase()), l.title),
-        h("button", { class: "icon-btn sm", title: "Copiar usuario", "aria-label": `Copiar usuario de ${l.title}`, onclick: () => copy(l.username, "Usuario") }, ico("user")),
-        h("button", { class: "icon-btn sm", title: "Copiar contraseña", "aria-label": `Copiar contraseña de ${l.title}`, onclick: () => copy(l.password, "Contraseña") }, ico("key")))))
-        : h("p", { class: "muted small" }, "Marca contraseñas con ★ y aparecerán aquí para copiarlas en un toque.")),
     otps.length > 0 && panel("CÓDIGOS 2FA", otpHost),
     panel("AUDITORÍA",
       alerts.length ? h("ul", { class: "w-alerts" }, ...alerts.map((a) => h("li", { class: a.warn ? "warn" : "" }, h("button", { onclick: a.run }, h("span", {}, a.text), ico("chev")))))
@@ -936,6 +931,7 @@ export function desktopMenu() {
     ["Nuevo código 2FA", "otp", () => { openApp("autenticador"); otpEditor(); }],
     ["Subir archivos", "up", () => { const w = openApp("drive"); setTimeout(() => w?.upload?.(), 50); }],
     "-",
+    ["Ordenar iconos", "grid", () => resetIcons()],
     ["Cambiar fondo", "sphere", () => { const order = ["esfera", "cerebro", "rejilla"]; settings.wallpaper = order[(order.indexOf(settings.wallpaper) + 1) % 3]; saveSettings(); setWallpaper(); toast(`Fondo: ${settings.wallpaper}`); }],
     ["Buscar", "search", () => openPalette(), null, "Ctrl K"],
     ["Bloquear", "lock", () => lockFn("Bóveda bloqueada"), "danger-item", "Ctrl ⇧ L"],

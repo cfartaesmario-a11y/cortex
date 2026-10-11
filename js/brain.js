@@ -16,7 +16,8 @@ function loadMap(src) {
       x.drawImage(img, 0, 0, GRID, GRID);
       const d = x.getImageData(0, 0, GRID, GRID).data;
       const L = new Float32Array(GRID * GRID);
-      for (let i = 0; i < L.length; i++) L[i] = (d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11) / 255;
+      // brillo × opacidad (la imagen es blanca con transparencia)
+      for (let i = 0; i < L.length; i++) L[i] = ((d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11) / 255) * (d[i * 4 + 3] / 255);
       // Mapa de "fibras": brillo menos su entorno (quita halos y zonas lisas)
       const B = new Float32Array(L.length), R = 3;
       for (let y = 0; y < GRID; y++) for (let xx = 0; xx < GRID; xx++) {
