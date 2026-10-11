@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Cada bóveda solo la puede tocar la cuenta que la creó
+    // (cuenta derivada de la contraseña maestra + archivo llave).
+    match /vaults/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Contador de intentos fallidos por archivo llave (se consulta antes de entrar).
+    // El id es aleatorio y solo lo conoce quien tiene el archivo llave.
+    match /attempts/{keyId} {
+      allow get: if keyId.matches('^[0-9a-f]{24}$');
+      allow create, update: if keyId.matches('^[0-9a-f]{24}$')
+        && request.resource.data.keys().hasOnly(['failed', 'lockUntil', 'fails'])
+        && request.resource.data.failed is int
+        && request.resource.data.lockUntil is int
+        && request.resource.data.fails is list
+        && request.resource.data.fails.size() <= 30;
+      allow list, delete: if false;
+    }
+
+    // Todo lo demás, cerrado.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
