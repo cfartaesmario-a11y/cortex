@@ -26,6 +26,7 @@ async function boot() {
 }
 
 async function bootSequence() {
+  if (document.hidden) return; // en segundo plano no tiene sentido animar el arranque
   const lines = [
     ["CORTEX OS 2.0 · núcleo neural", "hi"],
     ["[  OK  ] Comprobando integridad del sistema", ""],
@@ -43,7 +44,7 @@ async function bootSequence() {
   const sk = () => { skip = true; };
   scr.addEventListener("pointerdown", sk); addEventListener("keydown", sk, { once: true });
   for (const [t, cls] of lines) {
-    if (skip) break;
+    if (skip || document.hidden) { skip = true; break; }
     const l = h("div", { class: `bl ${cls}` }); out.append(l); scramble(l, t, 160);
     await wait(150 + Math.random() * 90);
   }
